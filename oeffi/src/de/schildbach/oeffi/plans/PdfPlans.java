@@ -76,37 +76,19 @@ public final class PdfPlans {
 
             final int[] pageWidths = new int[numPages];
             final int[] pageHeights = new int[numPages];
-            int maxPageWidth = 0;
             for (int i = 0; i < numPages; i++) {
                 try (final PdfRenderer.Page page = renderer.openPage(i)) {
                     pageWidths[i] = Math.max(1, page.getWidth());
                     pageHeights[i] = Math.max(1, page.getHeight());
-                    maxPageWidth = Math.max(maxPageWidth, pageWidths[i]);
                 }
             }
 
-            float scale = Math.min((float) TARGET_WIDTH / maxPageWidth, MAX_SCALE);
-            int numPagesShown = numPages;
-            while (numPagesShown > 1 && totalPixels(pageWidths, pageHeights, numPagesShown, scale) > MAX_TOTAL_PIXELS) {
-                if (maxPageWidth * scale > MIN_WIDTH)
-                    scale = Math.max((float) MIN_WIDTH / maxPageWidth, scale * 0.8f);
-                else
-                    numPagesShown--;
-            }
-            final long pixels = totalPixels(pageWidths, pageHeights, numPagesShown, scale);
-            if (pixels > MAX_TOTAL_PIXELS)
-                scale *= Math.sqrt((double) MAX_TOTAL_PIXELS / pixels);
-
-            final int[] widths = new int[numPagesShown];
-            final int[] heights = new int[numPagesShown];
-            int totalWidth = 0;
-            int totalHeight = 0;
-            for (int i = 0; i < numPagesShown; i++) {
-                widths[i] = Math.max(1, Math.round(pageWidths[i] * scale));
-                heights[i] = Math.max(1, Math.round(pageHeights[i] * scale));
-                totalWidth = Math.max(totalWidth, widths[i]);
-                totalHeight += heights[i];
-            }
+            final Layout layout = computeLayout(pageWidths, pageHeights);
+            final int numPagesShown = layout.pagesShown;
+            final int[] widths = layout.widths;
+            final int[] heights = layout.heights;
+            final int totalWidth = layout.totalWidth;
+            final int totalHeight = layout.totalHeight;
 
             final Bitmap bitmap = Bitmap.createBitmap(totalWidth, totalHeight, Bitmap.Config.RGB_565);
             try {
@@ -159,6 +141,58 @@ public final class PdfPlans {
                 return bitmap;
             }
         }
+    }
+
+    /**
+     * Size of the pages to render, in pixels. Pages that don't fit into memory are dropped from the end.
+     */
+    static final class Layout {
+        final int pagesShown;
+        final int[] widths;
+        final int[] heights;
+        final int totalWidth;
+        final int totalHeight;
+
+        Layout(final int pagesShown, final int[] widths, final int[] heights, final int totalWidth,
+                final int totalHeight) {
+            this.pagesShown = pagesShown;
+            this.widths = widths;
+            this.heights = heights;
+            this.totalWidth = totalWidth;
+            this.totalHeight = totalHeight;
+        }
+    }
+
+    static Layout computeLayout(final int[] pageWidths, final int[] pageHeights) {
+        final int numPages = pageWidths.length;
+        int maxPageWidth = 1;
+        for (final int pageWidth : pageWidths)
+            maxPageWidth = Math.max(maxPageWidth, pageWidth);
+
+        float scale = Math.min((float) TARGET_WIDTH / maxPageWidth, MAX_SCALE);
+        int pagesShown = numPages;
+        while (pagesShown > 1 && totalPixels(pageWidths, pageHeights, pagesShown, scale) > MAX_TOTAL_PIXELS) {
+            if (maxPageWidth * scale > MIN_WIDTH)
+                scale = Math.max((float) MIN_WIDTH / maxPageWidth, scale * 0.8f);
+            else
+                pagesShown--;
+        }
+        final long pixels = totalPixels(pageWidths, pageHeights, pagesShown, scale);
+        if (pixels > MAX_TOTAL_PIXELS)
+            scale *= Math.sqrt((double) MAX_TOTAL_PIXELS / pixels);
+
+        final int[] widths = new int[pagesShown];
+        final int[] heights = new int[pagesShown];
+        int totalWidth = 0;
+        int totalHeight = 0;
+        for (int i = 0; i < pagesShown; i++) {
+            widths[i] = Math.max(1, Math.round(pageWidths[i] * scale));
+            heights[i] = Math.max(1, Math.round(pageHeights[i] * scale));
+            totalWidth = Math.max(totalWidth, widths[i]);
+            totalHeight += heights[i];
+        }
+
+        return new Layout(pagesShown, widths, heights, totalWidth, totalHeight);
     }
 
     private static long totalPixels(final int[] pageWidths, final int[] pageHeights, final int numPages,
