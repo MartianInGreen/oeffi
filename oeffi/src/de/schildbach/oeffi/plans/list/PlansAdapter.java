@@ -20,6 +20,7 @@ package de.schildbach.oeffi.plans.list;
 import android.content.Context;
 import android.content.res.Resources;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
@@ -29,6 +30,8 @@ import android.view.ViewGroup;
 import androidx.recyclerview.widget.RecyclerView;
 import de.schildbach.oeffi.Constants;
 import de.schildbach.oeffi.R;
+import de.schildbach.oeffi.plans.CustomPlans;
+import de.schildbach.oeffi.plans.PdfPlans;
 import de.schildbach.oeffi.plans.PlanContentProvider;
 import okhttp3.Cache;
 import okhttp3.Call;
@@ -37,16 +40,25 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static java.util.Objects.requireNonNull;
 
 public class PlansAdapter extends RecyclerView.Adapter<PlanViewHolder> {
+    private static final Logger log = LoggerFactory.getLogger(PlansAdapter.class);
+
+    private static final ExecutorService PDF_THUMB_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final int PDF_THUMB_WIDTH = 172;
+
     private final Context context;
     private final Resources res;
     private final LayoutInflater inflater;
@@ -58,6 +70,7 @@ public class PlansAdapter extends RecyclerView.Adapter<PlanViewHolder> {
     private final int validFromColumn;
     private final int networkLogoColumn;
     private final int urlColumn;
+    private final int customColumn;
     private final PlanClickListener clickListener;
     private final PlanContextMenuItemListener contextMenuItemListener;
 
@@ -81,6 +94,7 @@ public class PlansAdapter extends RecyclerView.Adapter<PlanViewHolder> {
         validFromColumn = cursor.getColumnIndexOrThrow(PlanContentProvider.KEY_PLAN_VALID_FROM);
         networkLogoColumn = cursor.getColumnIndexOrThrow(PlanContentProvider.KEY_PLAN_NETWORK_LOGO);
         urlColumn = cursor.getColumnIndexOrThrow(PlanContentProvider.KEY_PLAN_REMOTE_URL);
+        customColumn = cursor.getColumnIndexOrThrow(PlanContentProvider.KEY_PLAN_CUSTOM);
 
         setHasStableIds(true);
 
@@ -139,6 +153,25 @@ public class PlansAdapter extends RecyclerView.Adapter<PlanViewHolder> {
         final int position = holder.getAdapterPosition();
         final Plan plan = getPlan(position);
         if (holder.getCall() == null) {
+            if (plan.custom) {
+                // render a thumbnail of the first page of the imported PDF plan
+                final File planFile = plan.localFile;
+                PDF_THUMB_EXECUTOR.execute(() -> {
+                    try {
+                        final Bitmap bitmap = PdfPlans.renderThumbnail(planFile, PDF_THUMB_WIDTH);
+                        final Drawable thumb = new BitmapDrawable(res, bitmap);
+                        handler.post(() -> {
+                            final int currentPosition = holder.getAdapterPosition();
+                            if (currentPosition != RecyclerView.NO_POSITION && getPlan(currentPosition).planId.equals(plan.planId))
+                                notifyItemChanged(currentPosition, thumb);
+                        });
+                    } catch (final IOException | RuntimeException x) {
+                        log.debug("Could not render thumbnail of " + planFile, x);
+                    }
+                });
+                return;
+            }
+
             final HttpUrl thumbUrl = Constants.PLANS_BASE_URL.newBuilder()
                     .addEncodedPathSegment(plan.planId + "_thumb.png").build();
             final Request request = new Request.Builder().url(thumbUrl).build();
@@ -190,8 +223,10 @@ public class PlansAdapter extends RecyclerView.Adapter<PlanViewHolder> {
         final String networkLogo = cursor.getString(networkLogoColumn);
         final String urlStr = cursor.getString(urlColumn);
         final HttpUrl url = urlStr != null ? HttpUrl.parse(urlStr) : null;
-        final File localFile = new File(context.getDir(Constants.PLANS_DIR, Context.MODE_PRIVATE), planId + ".png");
-        return new Plan(rowId, planId, name, disclaimer, validFrom, networkLogo, url, localFile);
+        final boolean custom = cursor.getInt(customColumn) != 0;
+        final String filename = planId + (custom ? CustomPlans.PDF_EXTENSION : ".png");
+        final File localFile = new File(context.getDir(Constants.PLANS_DIR, Context.MODE_PRIVATE), filename);
+        return new Plan(rowId, planId, name, disclaimer, validFrom, networkLogo, url, localFile, custom);
     }
 
     public static class Plan {
@@ -207,9 +242,12 @@ public class PlansAdapter extends RecyclerView.Adapter<PlanViewHolder> {
         @Nullable
         public final HttpUrl url;
         public final File localFile;
+        /** {@code true} if this plan is a locally imported PDF plan. */
+        public final boolean custom;
 
         protected Plan(final long rowId, final String planId, final String name, final String disclaimer,
-                final Date validFrom, final String networkLogo, final HttpUrl url, final File localFile) {
+                final Date validFrom, final String networkLogo, final HttpUrl url, final File localFile,
+                final boolean custom) {
             this.rowId = rowId;
             this.planId = requireNonNull(planId);
             this.name = requireNonNull(name);
@@ -218,6 +256,7 @@ public class PlansAdapter extends RecyclerView.Adapter<PlanViewHolder> {
             this.networkLogo = networkLogo;
             this.url = url;
             this.localFile = requireNonNull(localFile);
+            this.custom = custom;
         }
     }
 }

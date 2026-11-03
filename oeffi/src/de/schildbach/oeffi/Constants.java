@@ -31,6 +31,8 @@ public class Constants {
     public static final String PLANS_DIR = "plans";
     public static final String PLAN_INDEX_FILENAME = "plans-index.txt";
     public static final String PLAN_STATIONS_FILENAME = "plans-stations.txt";
+    public static final String PLAN_CUSTOM_INDEX_FILENAME = "plans-custom-index.txt";
+    public static final String PLAN_CUSTOM_ID_PREFIX = "custom-";
 
     public static final String REPORT_EMAIL = "oeffi.app@gmail.com";
 

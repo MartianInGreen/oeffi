@@ -178,14 +178,16 @@ public class PlanActivity extends ComponentActivity {
         final String planId = requireNonNull(getIntent().getExtras().getString(INTENT_EXTRA_PLAN_ID), () ->
                 "Required intent extra: " + INTENT_EXTRA_PLAN_ID);
         final Uri planContentUri = PlanContentProvider.planUri(planId);
-        final String planFilename = planId + ".png";
-        final File planFile = new File(getDir(Constants.PLANS_DIR, Context.MODE_PRIVATE), planFilename);
 
         final Cursor cursor = getContentResolver().query(planContentUri, null, null, null, null);
         cursor.moveToFirst();
         final String planUrlStr = cursor
                 .getString(cursor.getColumnIndexOrThrow(PlanContentProvider.KEY_PLAN_REMOTE_URL));
+        final boolean customPlan = cursor.getInt(cursor.getColumnIndexOrThrow(PlanContentProvider.KEY_PLAN_CUSTOM)) != 0;
         cursor.close();
+
+        final String planFilename = planId + (customPlan ? CustomPlans.PDF_EXTENSION : ".png");
+        final File planFile = new File(getDir(Constants.PLANS_DIR, Context.MODE_PRIVATE), planFilename);
 
         stations.clear();
         final Cursor stationsCursor = getContentResolver().query(PlanContentProvider.stationsUri(planId), null, null,
@@ -210,19 +212,28 @@ public class PlanActivity extends ComponentActivity {
             stationsCursor.close();
         }
 
-        final Downloader downloader = new Downloader(getCacheDir());
-        final HttpUrl remoteUrl = planUrlStr != null ? HttpUrl.parse(planUrlStr)
-                : Constants.PLANS_BASE_URL.newBuilder().addEncodedPathSegment(planFilename).build();
-        final CompletableFuture<Integer> download = downloader.download(application.okHttpClient(), remoteUrl, planFile);
+        if (customPlan) {
+            // imported PDF plans are always available locally
+            if (planFile.exists())
+                loadPlan(planFile);
+            else
+                new Toast(this).longToast(R.string.plans_picker_import_error_missing_file);
+        } else {
+            final Downloader downloader = new Downloader(getCacheDir());
+            final HttpUrl remoteUrl = planUrlStr != null ? HttpUrl.parse(planUrlStr)
+                    : Constants.PLANS_BASE_URL.newBuilder().addEncodedPathSegment(planFilename).build();
+            final CompletableFuture<Integer> download = downloader.download(application.okHttpClient(), remoteUrl,
+                    planFile);
 
-        download.whenComplete((status, t) -> {
-            if (t == null && status == HttpURLConnection.HTTP_OK) {
-                runOnUiThread(() -> loadPlan(planFile));
-            }
-        });
+            download.whenComplete((status, t) -> {
+                if (t == null && status == HttpURLConnection.HTTP_OK) {
+                    runOnUiThread(() -> loadPlan(planFile));
+                }
+            });
 
-        if (planFile.exists())
-            loadPlan(planFile);
+            if (planFile.exists())
+                loadPlan(planFile);
+        }
 
         setDefaultKeyMode(DEFAULT_KEYS_SEARCH_LOCAL);
     }
@@ -336,68 +347,118 @@ public class PlanActivity extends ComponentActivity {
         LOWMEM_OPTIONS.inDither = true;
     }
 
+    private static class DecodedPlan {
+        final TiledImageDrawable drawable;
+        final int pagesShown;
+        final int pagesTotal;
+
+        DecodedPlan(final TiledImageDrawable drawable, final int pagesShown, final int pagesTotal) {
+            this.drawable = drawable;
+            this.pagesShown = pagesShown;
+            this.pagesTotal = pagesTotal;
+        }
+    }
+
     private void loadPlan(final File planFile) {
-        try {
-            final Bitmap bitmap = BitmapFactory.decodeFile(planFile.getPath(), LOWMEM_OPTIONS);
-            if (bitmap == null)
-                throw new IOException("Cannot decode bitmap from file descriptor");
+        backgroundHandler.post(() -> {
+            try {
+                final Bitmap bitmap;
+                int pagesShown = 1;
+                int pagesTotal = 1;
 
-            final int height = bitmap.getHeight();
-            final int halfHeight = height / 2;
-            final int width = bitmap.getWidth();
-            final int halfWidth = width / 2;
+                if (planFile.getName().toLowerCase(Locale.US).endsWith(CustomPlans.PDF_EXTENSION)) {
+                    final PdfPlans.RenderedPlan renderedPlan = PdfPlans.renderPlan(planFile);
+                    bitmap = renderedPlan.bitmap;
+                    pagesShown = renderedPlan.pagesShown;
+                    pagesTotal = renderedPlan.pagesTotal;
+                } else {
+                    bitmap = BitmapFactory.decodeFile(planFile.getPath(), LOWMEM_OPTIONS);
+                    if (bitmap == null)
+                        throw new IOException("Cannot decode bitmap from file descriptor");
+                }
 
-            final Bitmap nwBitmap = Bitmap.createBitmap(bitmap, 0, 0, halfWidth, halfHeight);
-            final Bitmap neBitmap = Bitmap.createBitmap(bitmap, halfWidth, 0, width - halfWidth, halfHeight);
-            final Bitmap swBitmap = Bitmap.createBitmap(bitmap, 0, halfHeight, halfWidth, height - halfHeight);
-            final Bitmap seBitmap = Bitmap.createBitmap(bitmap, halfWidth, halfHeight, width - halfWidth,
-                    height - halfHeight);
-            drawable = new TiledImageDrawable(nwBitmap, neBitmap, swBitmap, seBitmap);
+                final TiledImageDrawable drawable = tile(bitmap);
+                final DecodedPlan decodedPlan = new DecodedPlan(drawable, pagesShown, pagesTotal);
+                handler.post(() -> applyPlan(decodedPlan));
+            } catch (final IOException | OutOfMemoryError | RuntimeException x) {
+                log.info("Problem loading " + planFile, x);
+                final String message = x.getMessage();
+                handler.post(() -> new Toast(PlanActivity.this)
+                        .longToast(message != null ? message : getString(R.string.plan_error_loading)));
+            }
+        });
+    }
 
-            plan.setImageDrawable(drawable);
+    /**
+     * Split the plan image into four tiles, so that the drawing cache of the view stays reasonably small.
+     */
+    private static TiledImageDrawable tile(final Bitmap bitmap) throws IOException {
+        final int height = bitmap.getHeight();
+        final int halfHeight = height / 2;
+        final int width = bitmap.getWidth();
+        final int halfWidth = width / 2;
+        if (halfWidth < 1 || halfHeight < 1)
+            throw new IOException("Plan image is too small: " + width + "x" + height);
 
-            updateScale();
+        final Bitmap nwBitmap = Bitmap.createBitmap(bitmap, 0, 0, halfWidth, halfHeight);
+        final Bitmap neBitmap = Bitmap.createBitmap(bitmap, halfWidth, 0, width - halfWidth, halfHeight);
+        final Bitmap swBitmap = Bitmap.createBitmap(bitmap, 0, halfHeight, halfWidth, height - halfHeight);
+        final Bitmap seBitmap = Bitmap.createBitmap(bitmap, halfWidth, halfHeight, width - halfWidth,
+                height - halfHeight);
 
-            viewAnimator.setDisplayedChild(1);
+        return new TiledImageDrawable(nwBitmap, neBitmap, swBitmap, seBitmap);
+    }
 
-            if (!stations.isEmpty()) {
-                new Toast(PlanActivity.this).toast(R.string.toast_plan_interactive_hint);
+    private void applyPlan(final DecodedPlan decodedPlan) {
+        if (isFinishing() || isDestroyed())
+            return;
 
-                plan.setStationsAware(new StationsAware() {
-                    public List<Station> getStations() {
-                        return stations;
-                    }
+        drawable = decodedPlan.drawable;
 
-                    public Integer getFavoriteState(final String stationId) {
-                        return null;
-                    }
+        plan.setImageDrawable(drawable);
 
-                    public void selectStation(final Station station) {
-                        PlanActivity.this.selectStation(station);
-                    }
+        updateScale();
 
-                    public boolean isSelectedStation(final String stationId) {
-                        final Station selection = PlanActivity.this.selection;
-                        return selection != null && selection.location.hasId()
-                                && stationId.equals(selection.location.id);
-                    }
-                });
+        viewAnimator.setDisplayedChild(1);
 
-                final String selectedId = getIntent().getExtras().getString(INTENT_EXTRA_SELECTED_STATION_ID);
-                if (selectedId != null) {
-                    for (final Station station : stations) {
-                        if (selectedId.equals(station.location.id)) {
-                            // delay until after layout finished
-                            handler.postDelayed(() -> selectStation(station), 500);
+        if (decodedPlan.pagesShown < decodedPlan.pagesTotal)
+            new Toast(this).longToast(getString(R.string.plan_toast_pdf_pages_truncated, decodedPlan.pagesShown,
+                    decodedPlan.pagesTotal));
 
-                            break;
-                        }
+        if (!stations.isEmpty()) {
+            new Toast(PlanActivity.this).toast(R.string.toast_plan_interactive_hint);
+
+            plan.setStationsAware(new StationsAware() {
+                public List<Station> getStations() {
+                    return stations;
+                }
+
+                public Integer getFavoriteState(final String stationId) {
+                    return null;
+                }
+
+                public void selectStation(final Station station) {
+                    PlanActivity.this.selectStation(station);
+                }
+
+                public boolean isSelectedStation(final String stationId) {
+                    final Station selection = PlanActivity.this.selection;
+                    return selection != null && selection.location.hasId()
+                            && stationId.equals(selection.location.id);
+                }
+            });
+
+            final String selectedId = getIntent().getExtras().getString(INTENT_EXTRA_SELECTED_STATION_ID);
+            if (selectedId != null) {
+                for (final Station station : stations) {
+                    if (selectedId.equals(station.location.id)) {
+                        // delay until after layout finished
+                        handler.postDelayed(() -> selectStation(station), 500);
+
+                        break;
                     }
                 }
             }
-        } catch (final IOException | OutOfMemoryError x) {
-            log.info("Problem loading " + planFile, x);
-            new Toast(PlanActivity.this).longToast(x.getMessage());
         }
     }
 }

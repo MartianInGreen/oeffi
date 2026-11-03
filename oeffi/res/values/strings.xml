@@ -289,6 +289,14 @@
     <string name="plans_picker_context_open_title">Open plan</string>
     <string name="plans_picker_context_remove_title">Remove plan</string>
     <string name="plans_picker_context_launcher_shortcut_title">Create Launcher Shortcut</string>
+    <string name="plans_picker_action_import_title">Import PDF plan</string>
+    <string name="plans_picker_import_success">Plan \"%1$s\" imported.</string>
+    <string name="plans_picker_import_error">Could not import the plan.</string>
+    <string name="plans_picker_import_error_not_pdf">The selected file is not a PDF file.</string>
+    <string name="plans_picker_import_error_too_large">The selected file is too large.</string>
+    <string name="plans_picker_import_error_missing_file">The plan file is missing.</string>
+    <string name="plans_picker_entry_custom">Imported</string>
+    <string name="plans_picker_custom_plan_name_fallback">Imported plan</string>
     <string name="plans_picker_list_empty">No plans found</string>
     <string name="plans_picker_entry_valid_from">Valid from\n%s</string>
     <string name="plans_picker_action_search_title">Search plans</string>
@@ -297,6 +305,8 @@
 
     <!-- plan -->
     <string name="plan_progress_loading">Loading plan…</string>
+    <string name="plan_toast_pdf_pages_truncated">Only the first %1$d of %2$d pages are shown.</string>
+    <string name="plan_error_loading">The plan could not be loaded.</string>
     <string name="toast_plan_interactive_hint">This plan is interactive!\nTry tapping on stations.</string>
     <string name="plan_searchable_hint">Search station</string>
 

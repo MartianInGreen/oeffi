@@ -63,6 +63,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.util.concurrent.CompletableFuture;
 
@@ -93,6 +94,12 @@ public class PlansPickerActivity extends OeffiMainActivity implements LocationHe
                 maybeStartLocation();
             });
 
+    private final ActivityResultLauncher<String[]> importPlanLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null)
+                    importPlan(uri);
+            });
+
     @Override
     protected String taskName() {
         return "plans";
@@ -119,6 +126,8 @@ public class PlansPickerActivity extends OeffiMainActivity implements LocationHe
         actionBar = getMyActionBar();
         setPrimaryColor(R.color.bg_action_bar);
         actionBar.setPrimaryTitle(R.string.plans_activity_title);
+        actionBar.addButton(R.drawable.ic_picture_as_pdf_white_24dp, R.string.plans_picker_action_import_title)
+                .setOnClickListener(v -> importPlanLauncher.launch(new String[] { "application/pdf" }));
         actionBar.addButton(R.drawable.ic_search_white_24dp, R.string.plans_picker_action_search_title)
                 .setOnClickListener(v -> onSearchRequested());
 
@@ -271,10 +280,19 @@ public class PlansPickerActivity extends OeffiMainActivity implements LocationHe
             openPlan(plan);
             return true;
         } else if (menuItemId == R.id.plans_picker_context_remove) {
+            if (plan.custom) {
+                CustomPlans.deletePlan(this, plan.planId);
+                requery();
+                return true;
+            }
+
             Downloader.deleteDownload(plan.localFile);
-            final int position = listView.findViewHolderForItemId(plan.rowId).getAdapterPosition();
-            if (position != RecyclerView.NO_POSITION)
-                listAdapter.setLoaded(position, false);
+            final RecyclerView.ViewHolder holder = listView.findViewHolderForItemId(plan.rowId);
+            if (holder != null) {
+                final int position = holder.getAdapterPosition();
+                if (position != RecyclerView.NO_POSITION)
+                    listAdapter.setLoaded(position, false);
+            }
             return true;
         } else if (menuItemId == R.id.plans_picker_context_launcher_shortcut) {
             final String shortcutId = "plan-" + plan.planId;
@@ -293,6 +311,14 @@ public class PlansPickerActivity extends OeffiMainActivity implements LocationHe
     }
 
     private void openPlan(final PlansAdapter.Plan plan) {
+        if (plan.custom) {
+            if (plan.localFile.exists())
+                PlanActivity.start(this, plan.planId, null);
+            else
+                new Toast(this).longToast(R.string.plans_picker_import_error_missing_file);
+            return;
+        }
+
         final String planFilename = plan.planId + ".png";
         final File planFile = new File(getDir(Constants.PLANS_DIR, MODE_PRIVATE), planFilename);
 
@@ -338,5 +364,35 @@ public class PlansPickerActivity extends OeffiMainActivity implements LocationHe
                 });
             });
         }
+    }
+
+    private void importPlan(final Uri uri) {
+        actionBar.startProgress();
+
+        new Thread(() -> {
+            try {
+                final CustomPlans.Entry entry = CustomPlans.importPlan(PlansPickerActivity.this, uri);
+                runOnUiThread(() -> {
+                    actionBar.stopProgress();
+                    requery();
+                    new Toast(PlansPickerActivity.this)
+                            .toast(getString(R.string.plans_picker_import_success, entry.name));
+                });
+            } catch (final CustomPlans.TooLargeException x) {
+                postImportError(R.string.plans_picker_import_error_too_large);
+            } catch (final CustomPlans.NotPdfException x) {
+                postImportError(R.string.plans_picker_import_error_not_pdf);
+            } catch (final IOException | RuntimeException x) {
+                log.warn("Could not import plan from " + uri, x);
+                postImportError(R.string.plans_picker_import_error);
+            }
+        }, "importPlanThread").start();
+    }
+
+    private void postImportError(final int messageResId) {
+        runOnUiThread(() -> {
+            actionBar.stopProgress();
+            new Toast(PlansPickerActivity.this).longToast(messageResId);
+        });
     }
 }

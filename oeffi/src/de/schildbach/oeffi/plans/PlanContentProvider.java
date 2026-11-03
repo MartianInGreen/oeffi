@@ -23,6 +23,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.CursorWrapper;
 import android.database.MatrixCursor;
+import android.database.MergeCursor;
 import android.net.Uri;
 import android.provider.BaseColumns;
 import de.schildbach.oeffi.Application;
@@ -70,6 +71,12 @@ public class PlanContentProvider extends ContentProvider {
     public static final String KEY_PLAN_DISCLAIMER = "plan_disclaimer";
     public static final String KEY_PLAN_REMOTE_URL = "plan_remote_url";
     public static final String KEY_PLAN_NETWORK_LOGO = "plan_network_logo";
+    /** 1 if this plan is a locally imported PDF plan, 0 otherwise. */
+    public static final String KEY_PLAN_CUSTOM = "plan_custom";
+
+    private static final String[] INDEX_COLUMNS = new String[] { BaseColumns._ID, KEY_PLAN_ID, KEY_PLAN_NAME,
+            KEY_PLAN_LAT, KEY_PLAN_LON, KEY_PLAN_VALID_FROM, KEY_PLAN_DISCLAIMER, KEY_PLAN_REMOTE_URL,
+            KEY_PLAN_NETWORK_LOGO, KEY_PLAN_CUSTOM };
 
     public static final String KEY_STATION_NETWORK = "station_network";
     public static final String KEY_STATION_ID = "station_id";
@@ -142,14 +149,23 @@ public class PlanContentProvider extends ContentProvider {
                 throw new IllegalArgumentException("Bad path: " + uri);
 
             final Cursor cursor = readIndexIntoCursor(indexFile, id, q);
+            final Cursor sortedCursor;
             if (sortOrder != null) {
                 final String[] latLon = sortOrder.split(",");
                 final double lat = Double.parseDouble(latLon[0]);
                 final double lon = Double.parseDouble(latLon[1]);
-                return new DistanceSortingCursorWrapper(cursor, lat, lon);
+                sortedCursor = new DistanceSortingCursorWrapper(cursor, lat, lon);
             } else {
-                return cursor;
+                sortedCursor = cursor;
             }
+
+            // locally imported PDF plans are always listed first
+            final Cursor customCursor = readCustomPlansIntoCursor(id, q);
+            if (customCursor.getCount() == 0)
+                return sortedCursor;
+            if (sortedCursor.getCount() == 0)
+                return customCursor;
+            return new MergeCursor(new Cursor[] { customCursor, sortedCursor });
         } else if (pathSegments.size() == 3) {
             if (pathSegments.get(0).equals("plan") && pathSegments.get(2).equals("stations")) {
                 final String planId = pathSegments.get(1).trim();
@@ -185,9 +201,7 @@ public class PlanContentProvider extends ContentProvider {
             @Nullable final String query) throws IOException, NumberFormatException {
 
         try (final BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-            final MatrixCursor cursor = new MatrixCursor(
-                    new String[] { BaseColumns._ID, KEY_PLAN_ID, KEY_PLAN_NAME, KEY_PLAN_LAT, KEY_PLAN_LON,
-                            KEY_PLAN_VALID_FROM, KEY_PLAN_DISCLAIMER, KEY_PLAN_REMOTE_URL, KEY_PLAN_NETWORK_LOGO });
+            final MatrixCursor cursor = new MatrixCursor(INDEX_COLUMNS);
 
             final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
 
@@ -222,12 +236,31 @@ public class PlanContentProvider extends ContentProvider {
                 if (filterMatch) {
                     cursor.newRow().add(rowId).add(planId).add(planName).add(p.getLatAs1E6()).add(p.getLonAs1E6())
                             .add(planValidFrom != null ? planValidFrom.getTime() : 0).add(planDisclaimer).add(planUrl)
-                            .add(planNetworkLogo);
+                            .add(planNetworkLogo).add(0);
                 }
             }
 
             return cursor;
         }
+    }
+
+    /**
+     * Read the locally imported PDF plans into a cursor. Those plans never have a remote url nor station markers.
+     */
+    private Cursor readCustomPlansIntoCursor(@Nullable final String idFilter, @Nullable final String query) {
+        final MatrixCursor cursor = new MatrixCursor(INDEX_COLUMNS);
+
+        for (final CustomPlans.Entry entry : CustomPlans.read(getContext())) {
+            if (idFilter != null && !idFilter.equals(entry.planId))
+                continue;
+            if (query != null && !entry.name.toLowerCase(Constants.DEFAULT_LOCALE).contains(query))
+                continue;
+
+            cursor.newRow().add(entry.planId.hashCode()).add(entry.planId).add(entry.name).add(0).add(0)
+                    .add(entry.addedAt).add(null).add(null).add(null).add(1);
+        }
+
+        return cursor;
     }
 
     private Cursor readStationsIntoCursor(final File stationsFile, @Nullable final String planIdFilter,

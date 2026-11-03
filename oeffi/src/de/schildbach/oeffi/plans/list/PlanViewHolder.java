@@ -75,7 +75,7 @@ public class PlanViewHolder extends RecyclerView.ViewHolder {
 
         nameView.setText(plan.name);
 
-        disclaimerView.setText(plan.disclaimer);
+        disclaimerView.setText(plan.custom ? context.getString(R.string.plans_picker_entry_custom) : plan.disclaimer);
 
         loadedView.setVisibility(plan.localFile.exists() ? View.VISIBLE : View.GONE);
 
@@ -84,8 +84,8 @@ public class PlanViewHolder extends RecyclerView.ViewHolder {
         final Date now = new Date();
         final Date validFrom = plan.validFrom;
         final boolean valid = validFrom == null || validFrom.before(now);
-        validFromView.setText(
-                valid ? null : context.getString(R.string.plans_picker_entry_valid_from, dateFormat.format(validFrom)));
+        validFromView.setText(plan.custom || valid ? null
+                : context.getString(R.string.plans_picker_entry_valid_from, dateFormat.format(validFrom)));
 
         if (plan.networkLogo != null) {
             final NetworkResources networkResources = NetworkResources.instance(context, plan.networkLogo);

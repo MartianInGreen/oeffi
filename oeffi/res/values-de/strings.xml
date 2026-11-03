@@ -288,6 +288,14 @@
     <string name="plans_picker_context_open_title">Plan öffnen</string>
     <string name="plans_picker_context_remove_title">Plan löschen</string>
     <string name="plans_picker_context_launcher_shortcut_title">Launcher-Verknüpfung erstellen</string>
+    <string name="plans_picker_action_import_title">PDF-Fahrplan importieren</string>
+    <string name="plans_picker_import_success">Fahrplan „%1$s“ importiert.</string>
+    <string name="plans_picker_import_error">Der Fahrplan konnte nicht importiert werden.</string>
+    <string name="plans_picker_import_error_not_pdf">Die gewählte Datei ist kein PDF.</string>
+    <string name="plans_picker_import_error_too_large">Die gewählte Datei ist zu groß.</string>
+    <string name="plans_picker_import_error_missing_file">Die Fahrplandatei fehlt.</string>
+    <string name="plans_picker_entry_custom">Importiert</string>
+    <string name="plans_picker_custom_plan_name_fallback">Importierter Fahrplan</string>
     <string name="plans_picker_list_empty">Keine Pläne gefunden</string>
     <string name="plans_picker_entry_valid_from">Gültig ab\n%s</string>
     <string name="plans_picker_action_search_title">Plan-Suche</string>
@@ -296,6 +304,8 @@
 
     <!-- plan -->
     <string name="plan_progress_loading">Lade Plan…</string>
+    <string name="plan_toast_pdf_pages_truncated">Es werden nur die ersten %1$d von %2$d Seiten angezeigt.</string>
+    <string name="plan_error_loading">Der Plan konnte nicht geladen werden.</string>
     <string name="toast_plan_interactive_hint">Diese Karte ist interaktiv!\nDu kannst Haltestellen antippen.</string>
     <string name="plan_searchable_hint">Suche Haltestelle</string>
 
