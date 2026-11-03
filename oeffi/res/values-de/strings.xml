@@ -137,6 +137,11 @@
     <string name="stations_station_details_options_add_ignore_title">Ignorieren</string>
     <string name="stations_station_details_options_remove_ignore_title">Sichtbar machen</string>
 
+    <!-- departure stops (route of a vehicle) -->
+    <string name="stations_departure_stops_activity_title">Halte</string>
+    <string name="stations_departure_stops_progress">Lade Halte…</string>
+    <string name="stations_departure_stops_no_info">Dieser Verkehrsverbund hat keine Haltestellen für diese Linie geliefert. Es können nur der erste und der letzte Halt angezeigt werden.</string>
+
     <!-- stations decode foreign -->
     <string name="stations_decode_foreign_progress">Dekodiere touch&amp;travel-Code…</string>
     <string name="stations_decode_foreign_failed">Dekodierung fehlgeschlagen!</string>

@@ -124,6 +124,12 @@
             android:label="@string/stations_favorite_stations_title"
             android:taskAffinity="de.schildbach.oeffi.stations" />
 
+        <activity
+            android:name=".stations.DepartureStopsActivity"
+            android:configChanges="keyboard|keyboardHidden"
+            android:label="@string/stations_departure_stops_activity_title"
+            android:taskAffinity="de.schildbach.oeffi.stations" />
+
         <provider
             android:name=".stations.FavoriteStationsProvider"
             android:authorities="de.schildbach.oeffi.stations.favorites"

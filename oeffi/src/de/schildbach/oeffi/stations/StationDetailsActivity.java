@@ -475,7 +475,7 @@ public class StationDetailsActivity extends OeffiActivity implements StationsAwa
                 ((HeaderViewHolder) holder).bind(selectedStation, selectedLines, null);
             } else {
                 final Departure departure = getItem(position);
-                ((DepartureViewHolder) holder).bind(selectedNetwork, departure);
+                ((DepartureViewHolder) holder).bind(selectedNetwork, selectedStation, departure);
             }
         }
     }
@@ -575,7 +575,7 @@ public class StationDetailsActivity extends OeffiActivity implements StationsAwa
             this.timeFormat = DateFormat.getTimeFormat(context);
         }
 
-        public void bind(final NetworkId network, final Departure departure) {
+        public void bind(final NetworkId network, final Location station, final Departure departure) {
             final long currentTime = System.currentTimeMillis();
 
             final Date predictedTime = departure.predictedTime;
@@ -616,11 +616,14 @@ public class StationDetailsActivity extends OeffiActivity implements StationsAwa
             final Location destination = departure.destination;
             if (destination != null) {
                 destinationView.setText(Constants.DESTINATION_ARROW_PREFIX + destination.uniqueShortName());
-                itemView.setOnClickListener(destination.id != null ? v -> start(context, network, destination) : null);
+                destinationView.setOnClickListener(destination.id != null ? v -> start(context, network, destination) : null);
             } else {
                 destinationView.setText(null);
-                itemView.setOnClickListener(null);
+                destinationView.setOnClickListener(null);
             }
+
+            // tapping the departure shows the stops (i.e. the route) of this vehicle
+            itemView.setOnClickListener(v -> DepartureStopsActivity.start(context, network, station, departure));
 
             // position: use german translation "Gleis" only for trains, otherwise use "Steig"
             boolean isTrain = departure.line.product != null &&

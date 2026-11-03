@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <include layout="@layout/action_bar" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_divider"
+        android:baselineAligned="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingBottom="@dimen/text_padding_vertical_lax"
+        android:paddingLeft="@dimen/text_padding_horizontal_verylax"
+        android:paddingRight="@dimen/text_padding_horizontal_verylax"
+        android:paddingTop="@dimen/text_padding_vertical_lax">
+
+        <de.schildbach.oeffi.stations.LineView
+            android:id="@+id/stations_departure_stops_line"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="96dp" />
+
+        <TextView
+            android:id="@+id/stations_departure_stops_destination"
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="middle"
+            android:paddingLeft="@dimen/text_padding_horizontal"
+            android:singleLine="true" />
+
+        <TextView
+            android:id="@+id/stations_departure_stops_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingLeft="@dimen/text_padding_horizontal" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/stations_departure_stops_note"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_action_bar_appendix"
+        android:paddingBottom="@dimen/text_padding_vertical"
+        android:paddingLeft="@dimen/text_padding_horizontal_lax"
+        android:paddingRight="@dimen/text_padding_horizontal_lax"
+        android:paddingTop="@dimen/text_padding_vertical"
+        android:textSize="@dimen/font_size_small"
+        android:visibility="gone" />
+
+    <ViewAnimator
+        android:id="@+id/stations_departure_stops_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:inAnimation="@android:anim/fade_in"
+        android:outAnimation="@android:anim/fade_out">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/stations_departure_stops_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:scrollbars="none" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <ProgressBar
+                android:id="@+id/stations_departure_stops_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:indeterminateOnly="true" />
+
+            <TextView
+                android:id="@+id/stations_departure_stops_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="@dimen/text_padding_horizontal_verylax"
+                android:layout_marginRight="@dimen/text_padding_horizontal_verylax"
+                android:gravity="center"
+                android:paddingTop="8dp"
+                android:textSize="@dimen/font_size_large" />
+        </LinearLayout>
+    </ViewAnimator>
+
+</LinearLayout>
