@@ -51,7 +51,10 @@ import de.schildbach.oeffi.util.DividerItemDecoration;
 import de.schildbach.oeffi.util.Formats;
 import de.schildbach.pte.NetworkId;
 import de.schildbach.pte.NetworkProvider;
+import de.schildbach.pte.NetworkProvider.Accessibility;
 import de.schildbach.pte.NetworkProvider.Capability;
+import de.schildbach.pte.NetworkProvider.Optimize;
+import de.schildbach.pte.NetworkProvider.WalkSpeed;
 import de.schildbach.pte.dto.Departure;
 import de.schildbach.pte.dto.Line;
 import de.schildbach.pte.dto.Location;
@@ -273,8 +276,10 @@ public class DepartureStopsActivity extends OeffiActivity {
 
         final TimeSpec timeSpec = new TimeSpec.Absolute(DepArr.DEPART, plannedTime.getTime());
         final long requestedTimeMs = plannedTime.getTime();
+        final TripOptions options = new TripOptions(networkProvider.defaultProducts(), Optimize.LEAST_DURATION,
+                WalkSpeed.NORMAL, Accessibility.NEUTRAL, null);
         queryTripsRunnable = new QueryTripsRunnable(getResources(), progressDialog, handler, networkProvider, station,
-                null, destination, timeSpec, new TripOptions()) {
+                null, destination, timeSpec, options) {
             @Override
             protected void onPostExecute() {
                 dismissProgressDialog();
@@ -296,7 +301,15 @@ public class DepartureStopsActivity extends OeffiActivity {
                 setFallbackStops();
             }
         };
-        backgroundHandler.post(queryTripsRunnable);
+        backgroundHandler.post(() -> {
+            try {
+                queryTripsRunnable.run();
+            } catch (final RuntimeException x) {
+                log.warn("Problem querying stops for " + departure, x);
+                dismissProgressDialog();
+                handler.post(this::setFallbackStops);
+            }
+        });
     }
 
     private void setLegStops(final Trip.Public leg) {
