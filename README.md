@@ -22,7 +22,13 @@ shows the stops of that very vehicle – i.e. its route:
 * Tapping a stop opens the station details of that stop. The destination in the header still opens
   the station details of the destination.
 
-### 2. Import custom PDF plans ("Fahrpläne")
+### 2. Faster access to all departures of a station
+
+In the nearby stations list, an expanded station entry now has a second button to the left of the
+`…` button that directly opens *Show All Departures* (i.e. the station details), so the context menu
+doesn't have to be opened for the most common action.
+
+### 3. Import custom PDF plans ("Fahrpläne")
 
 The plan picker (**Plans**) has a new action bar button to import a PDF plan from the device:
 

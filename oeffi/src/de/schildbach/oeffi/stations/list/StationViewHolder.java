@@ -67,6 +67,7 @@ public class StationViewHolder extends RecyclerView.ViewHolder {
     public final LineView linesView;
     public final TextView distanceView;
     public final CompassNeedleView bearingView;
+    public final ImageButton allDeparturesButton;
     public final ImageButton contextButton;
     public final View contextButtonSpace;
     public final ViewGroup departuresViewGroup;
@@ -97,6 +98,7 @@ public class StationViewHolder extends RecyclerView.ViewHolder {
         linesView = itemView.findViewById(R.id.station_entry_lines);
         distanceView = itemView.findViewById(R.id.station_entry_distance);
         bearingView = itemView.findViewById(R.id.station_entry_bearing);
+        allDeparturesButton = itemView.findViewById(R.id.station_entry_all_departures_button);
         contextButton = itemView.findViewById(R.id.station_entry_context_button);
         contextButtonSpace = itemView.findViewById(R.id.station_entry_context_button_space);
         departuresViewGroup = itemView.findViewById(R.id.station_entry_departures);
@@ -182,6 +184,15 @@ public class StationViewHolder extends RecyclerView.ViewHolder {
         } else {
             bearingView.setVisibility(View.GONE);
         }
+
+        // all departures button
+        allDeparturesButton.setVisibility(itemView.isActivated() ? View.VISIBLE : View.GONE);
+        allDeparturesButton.setOnClickListener(itemView.isActivated() ? v -> {
+            final int position = getAdapterPosition();
+            if (position != RecyclerView.NO_POSITION)
+                contextMenuItemListener.onStationContextMenuItemClick(position, station.network, station.location,
+                        station.departures, R.id.station_context_details);
+        } : null);
 
         // context button
         contextButton.setVisibility(itemView.isActivated() ? View.VISIBLE : View.GONE);
