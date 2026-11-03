@@ -406,6 +406,9 @@ public class PlanActivity extends ComponentActivity {
         final Bitmap seBitmap = Bitmap.createBitmap(bitmap, halfWidth, halfHeight, width - halfWidth,
                 height - halfHeight);
 
+        // the tiles are copies, so the (large) source image can be freed right away
+        bitmap.recycle();
+
         return new TiledImageDrawable(nwBitmap, neBitmap, swBitmap, seBitmap);
     }
 

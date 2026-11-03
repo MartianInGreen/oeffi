@@ -38,8 +38,11 @@ public final class PdfPlans {
     private static final int MIN_WIDTH = 700;
     /** Maximum scale factor to avoid excessively large bitmaps for small pages. */
     private static final float MAX_SCALE = 4f;
-    /** Upper bound of pixels of a rendered plan, to keep memory usage sane. */
-    private static final long MAX_TOTAL_PIXELS = 8L * 1000 * 1000;
+    /**
+     * Upper bound of pixels of a rendered plan, to keep memory usage sane. PdfRenderer can only render into
+     * ARGB_8888 bitmaps, i.e. four bytes per pixel.
+     */
+    private static final long MAX_TOTAL_PIXELS = 6L * 1000 * 1000;
 
     public static final class RenderedPlan {
         public final Bitmap bitmap;
@@ -90,7 +93,7 @@ public final class PdfPlans {
             final int totalWidth = layout.totalWidth;
             final int totalHeight = layout.totalHeight;
 
-            final Bitmap bitmap = Bitmap.createBitmap(totalWidth, totalHeight, Bitmap.Config.RGB_565);
+            final Bitmap bitmap = Bitmap.createBitmap(totalWidth, totalHeight, Bitmap.Config.ARGB_8888);
             try {
                 final Canvas canvas = new Canvas(bitmap);
                 canvas.drawColor(Color.WHITE);
@@ -127,7 +130,7 @@ public final class PdfPlans {
                 final int pageWidth = Math.max(1, Math.round(page.getWidth() * scale));
                 final int pageHeight = Math.max(1, Math.round(page.getHeight() * scale));
 
-                final Bitmap bitmap = Bitmap.createBitmap(pageWidth, pageHeight, Bitmap.Config.RGB_565);
+                final Bitmap bitmap = Bitmap.createBitmap(pageWidth, pageHeight, Bitmap.Config.ARGB_8888);
                 try {
                     final Canvas canvas = new Canvas(bitmap);
                     canvas.drawColor(Color.WHITE);

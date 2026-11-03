@@ -67,7 +67,7 @@ public class PdfPlansTest {
         Assert.assertTrue(layout.widths[0] > 500);
         // and the result has to fit into memory
         final long pixels = (long) layout.totalWidth * layout.totalHeight;
-        Assert.assertTrue(pixels <= 8L * 1000 * 1000);
+        Assert.assertTrue(pixels <= 6L * 1000 * 1000);
     }
 
     @Test
@@ -76,7 +76,7 @@ public class PdfPlansTest {
 
         Assert.assertEquals(1, layout.pagesShown);
         final long pixels = (long) layout.totalWidth * layout.totalHeight;
-        Assert.assertTrue(pixels <= 8L * 1000 * 1000);
+        Assert.assertTrue(pixels <= 6L * 1000 * 1000);
         Assert.assertTrue(layout.totalHeight > layout.totalWidth);
     }
 
